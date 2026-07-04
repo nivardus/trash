@@ -5,7 +5,12 @@
 # Precompress the big text-like assets once, at build time, so Caddy can serve
 # brotli/gzip variants without paying compression cost per request. The engine
 # .wasm dominates load size (~39 MB) and compresses to ~9 MB with brotli -11.
-FROM alpine:3 AS compress
+#
+# Pin this stage to $BUILDPLATFORM: the compressed output is just static assets
+# and is identical for every target arch, so there's no reason to run the (very
+# slow) brotli -11 pass under QEMU emulation for linux/arm64. Running it once on
+# the native build host and sharing the result keeps the arm64 build fast.
+FROM --platform=$BUILDPLATFORM alpine:3 AS compress
 RUN apk add --no-cache brotli gzip
 COPY build/web/ /web/
 RUN set -eux; \
