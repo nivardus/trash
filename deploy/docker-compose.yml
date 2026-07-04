@@ -31,6 +31,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # Some hosts (systemd-resolved) leave the container's resolv.conf pointing at
+    # the 127.0.0.53 stub, which is unreachable inside the container and breaks
+    # all DNS, including the Let's Encrypt ACME lookups. Force a real resolver.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       SERVER_DOMAIN: ${SERVER_DOMAIN:?set SERVER_DOMAIN in .env}
     volumes:
