@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://bvy6dsj5352t2"]
+
+[ext_resource type="Script" uid="uid://bnhfcai6idf0p" path="res://scenes/player/player.gd" id="1_3vyb7"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_u8vuu"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_3vyb7"]
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_8afob"]
+properties/0/path = NodePath(".:rotation")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:position")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_dovo2"]
+properties/0/path = NodePath(".:input_dir")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:jump_held")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:look_yaw")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+
+[node name="Player" type="CharacterBody3D" unique_id=1000637425]
+script = ExtResource("1_3vyb7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=51957496]
+shape = SubResource("CapsuleShape3D_u8vuu")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1240610431]
+mesh = SubResource("CapsuleMesh_3vyb7")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="." unique_id=1941564500]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9524179, 0)
+spring_length = 3.0
+
+[node name="Camera3D" type="Camera3D" parent="SpringArm3D" unique_id=19925877]
+transform = Transform3D(1, 0, 0, 0, 0.9999999, 0, 0, 0, 0.9999999, 0, 0, 0)
+current = true
+
+[node name="MovementSync" type="MultiplayerSynchronizer" parent="." unique_id=604378301]
+replication_config = SubResource("SceneReplicationConfig_8afob")
+
+[node name="InputSync" type="MultiplayerSynchronizer" parent="." unique_id=195590079]
+replication_config = SubResource("SceneReplicationConfig_dovo2")

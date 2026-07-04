@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://sxscwmdfltq3"]
+
+[ext_resource type="Script" uid="uid://bq3bps03xf4ed" path="res://scenes/ui/main_menu/main_menu.gd" id="1_1ch07"]
+
+[node name="MainMenu" type="CanvasLayer" unique_id=1172293231]
+script = ExtResource("1_1ch07")
+
+[node name="JoinButton" type="Button" parent="." unique_id=593012161]
+offset_top = 2.0
+offset_right = 38.0
+offset_bottom = 33.0
+text = "Join"
+
+[node name="HostButton" type="Button" parent="." unique_id=290170253]
+offset_top = 64.0
+offset_right = 44.0
+offset_bottom = 95.0
+text = "Host
+"
+
+[connection signal="pressed" from="JoinButton" to="." method="_on_join_pressed"]
+[connection signal="pressed" from="HostButton" to="." method="_on_host_pressed"]
