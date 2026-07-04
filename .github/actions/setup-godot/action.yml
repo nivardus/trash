@@ -1,0 +1,58 @@
+name: Setup Godot
+description: Install the Godot headless editor and matching export templates, with caching.
+
+inputs:
+  version:
+    description: Godot version, e.g. "4.7-stable".
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Compute paths and cache key
+      id: vars
+      shell: bash
+      run: |
+        set -euo pipefail
+        VERSION="${{ inputs.version }}"
+        # Templates version dir uses "<major.minor.patch>.<status>" (e.g. 4.7.stable)
+        TEMPLATE_DIR="${VERSION%-*}.${VERSION#*-}"
+        BIN_DIR="${HOME}/.local/bin"
+        TEMPLATES_DIR="${HOME}/.local/share/godot/export_templates/${TEMPLATE_DIR}"
+
+        echo "bin_dir=${BIN_DIR}" >>"${GITHUB_OUTPUT}"
+        echo "godot_bin=${BIN_DIR}/godot" >>"${GITHUB_OUTPUT}"
+        echo "templates_dir=${TEMPLATES_DIR}" >>"${GITHUB_OUTPUT}"
+
+        # Make the installed editor available to later steps.
+        echo "${BIN_DIR}" >>"${GITHUB_PATH}"
+
+    - name: Cache Godot editor and export templates
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ steps.vars.outputs.godot_bin }}
+          ${{ steps.vars.outputs.templates_dir }}
+        key: godot-${{ runner.os }}-${{ inputs.version }}
+
+    - name: Download and install Godot ${{ inputs.version }} and export templates
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        VERSION="${{ inputs.version }}"
+        BASE="https://github.com/godotengine/godot/releases/download/${VERSION}"
+        EDITOR="Godot_v${VERSION}_linux.x86_64"
+        TEMPLATES="Godot_v${VERSION}_export_templates.tpz"
+
+        curl -fL "${BASE}/${EDITOR}.zip" -o /tmp/godot.zip
+        curl -fL "${BASE}/${TEMPLATES}" -o /tmp/templates.tpz
+
+        unzip -o /tmp/godot.zip -d /tmp/godot
+        mkdir -p "${{ steps.vars.outputs.bin_dir }}"
+        install -m 0755 "/tmp/godot/${EDITOR}" "${{ steps.vars.outputs.godot_bin }}"
+
+        mkdir -p "${{ steps.vars.outputs.templates_dir }}"
+        unzip -o /tmp/templates.tpz -d /tmp/templates
+        mv /tmp/templates/templates/* "${{ steps.vars.outputs.templates_dir }}/"
