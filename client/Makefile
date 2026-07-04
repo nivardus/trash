@@ -23,6 +23,8 @@ import: ## Import project assets (generates the .godot cache)
 web: ## Export the web build (output in build/web/)
 	mkdir -p build/web
 	$(GODOT) --headless --export-release "Web" build/web/index.html
+	# Ship the favicon assets alongside the export (referenced by head_include).
+	cp web/favicon.ico web/favicon-16x16.png web/favicon-32x32.png web/apple-touch-icon.png build/web/
 
 server: server-amd64 server-arm64 ## Export the dedicated server for amd64 + arm64
 

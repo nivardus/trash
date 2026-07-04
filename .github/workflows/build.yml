@@ -35,6 +35,8 @@ jobs:
         run: |
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
+          # Ship the favicon assets alongside the export (referenced by head_include).
+          cp web/favicon.ico web/favicon-16x16.png web/favicon-32x32.png web/apple-touch-icon.png build/web/
 
       - name: Export dedicated server (amd64)
         working-directory: client
