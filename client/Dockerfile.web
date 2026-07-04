@@ -1,8 +1,20 @@
-# Static web client image. Caddy's default config serves /usr/share/caddy on
-# :80 with correct MIME types (including application/wasm), which is all this
-# container needs to do — the public-facing Caddy in deploy/ handles TLS and
-# routing.
-FROM caddy:2-alpine
+# Static web client image. The public-facing Caddy in deploy/ handles TLS and
+# routing; this container just serves the Godot HTML5 export (index.html,
+# .wasm, .pck, ...) with correct MIME types and compression.
 
-# build/web/ holds the Godot HTML5 export (index.html, .wasm, .pck, ...).
-COPY build/web/ /usr/share/caddy/
+# Precompress the big text-like assets once, at build time, so Caddy can serve
+# brotli/gzip variants without paying compression cost per request. The engine
+# .wasm dominates load size (~39 MB) and compresses to ~9 MB with brotli -11.
+FROM alpine:3 AS compress
+RUN apk add --no-cache brotli gzip
+COPY build/web/ /web/
+RUN set -eux; \
+	for f in /web/*.wasm /web/*.js /web/*.pck /web/*.html /web/*.json /web/*.css /web/*.svg; do \
+		[ -f "$f" ] || continue; \
+		gzip -9 -k -f "$f"; \
+		brotli -q 11 -k -f "$f"; \
+	done
+
+FROM caddy:2-alpine
+COPY Caddyfile.web /etc/caddy/Caddyfile
+COPY --from=compress /web/ /usr/share/caddy/

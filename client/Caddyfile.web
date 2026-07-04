@@ -1,0 +1,16 @@
+# Config for the internal static web-client container. The public-facing Caddy
+# in deploy/ handles TLS and routing and reverse-proxies here; this server just
+# serves the Godot HTML5 export with the right MIME types and compression.
+#
+# The engine .wasm is ~39 MB uncompressed but compresses ~4x. We precompress
+# .wasm/.js/.pck at image-build time (see Dockerfile.web) and serve those
+# variants directly (no per-request CPU), falling back to on-the-fly encoding
+# for anything without a precompressed sibling. The public Caddy forwards the
+# client's Accept-Encoding and passes our Content-Encoding straight through.
+:80 {
+	root * /usr/share/caddy
+	encode zstd gzip
+	file_server {
+		precompressed br zstd gzip
+	}
+}
