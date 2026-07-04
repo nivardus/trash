@@ -168,6 +168,103 @@ jobs:
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
 
+  deploy:
+    name: Deploy to trash.place
+    needs: docker
+    # Only roll out from main. Tag builds publish images/releases but don't
+    # touch the running droplet (pin IMAGE_TAG in the droplet's .env instead).
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      # Never let two deploys race on the droplet; queue them instead.
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      SERVER_DOMAIN: trash.place
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pin the host key so the connection can't be silently MITM'd.
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy deploy files to droplet
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/trash'
+          # Ships compose file, Caddyfile, .env.example, README — leaves the
+          # droplet's own .env (not in the repo) untouched.
+          scp -i ~/.ssh/deploy_key -r deploy/. "$DEPLOY_USER@$DEPLOY_HOST:/opt/trash/"
+
+      - name: Pull images and restart
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" bash -euo pipefail <<'REMOTE'
+            cd /opt/trash
+            # First-ever deploy: seed .env from the example (SERVER_DOMAIN is
+            # already set to trash.place there).
+            [ -f .env ] || cp .env.example .env
+            docker compose pull
+            docker compose up -d --remove-orphans
+          REMOTE
+
+      - name: Verify containers are running
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" bash -euo pipefail <<'REMOTE'
+            cd /opt/trash
+            # Give containers a moment to settle before inspecting them.
+            sleep 5
+            docker compose ps
+            fail=0
+            for svc in $(docker compose config --services); do
+              cid=$(docker compose ps -q "$svc")
+              if [ -z "$cid" ]; then
+                echo "::error::service '$svc' has no container"
+                fail=1
+                continue
+              fi
+              status=$(docker inspect -f '{{.State.Status}}' "$cid")
+              # A container with a HEALTHCHECK also has a health string; treat a
+              # defined-but-unhealthy check as a failure.
+              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid")
+              echo "$svc: status=$status health=$health"
+              if [ "$status" != "running" ] || [ "$health" = "unhealthy" ]; then
+                echo "::error::service '$svc' is not healthy (status=$status health=$health)"
+                docker compose logs --tail=80 "$svc" || true
+                fail=1
+              fi
+            done
+            exit $fail
+          REMOTE
+
+      - name: Verify site responds over HTTPS
+        run: |
+          set -euo pipefail
+          # Caddy may still be fetching/renewing a cert on a fresh boot, so retry.
+          for attempt in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "https://$SERVER_DOMAIN/" || true)
+            echo "attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "$SERVER_DOMAIN is serving the client."
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::$SERVER_DOMAIN did not return HTTP 200 after retries"
+          exit 1
+
   release:
     name: Publish desktop client release
     needs: export

@@ -103,11 +103,41 @@ docker compose up -d
 To pin a specific release instead of `latest`, set `IMAGE_TAG=v0.1.0` in `.env`
 (any tag produced by the release workflow) and re-run the two commands above.
 
-### Optional: auto-update
+### Automatic deploy from CI
 
-To pull new images automatically without SSHing in, add
-[Watchtower](https://containrrr.dev/watchtower/) to `docker-compose.yml`, or add
-a deploy step to CI that runs the two commands above over SSH.
+The `Build` workflow has a `deploy` job that runs after the images are pushed,
+on every push to `main`. It SSHes into the droplet, copies this `deploy/`
+directory to `/opt/trash`, runs `docker compose pull && docker compose up -d`,
+and then verifies the rollout (every container is `running` and
+`https://trash.place` returns `200`).
+
+Set these repository secrets (**Settings → Secrets and variables → Actions**):
+
+| Secret           | Value                                                               |
+| ---------------- | ------------------------------------------------------------------- |
+| `DEPLOY_HOST`    | droplet hostname or IP, e.g. `trash.place`                          |
+| `DEPLOY_USER`    | SSH user, e.g. `root`                                               |
+| `DEPLOY_SSH_KEY` | **private** SSH key (full PEM, incl. the `BEGIN/END` lines)         |
+
+Generate a dedicated deploy key and authorize it on the droplet:
+
+```bash
+# on your machine
+ssh-keygen -t ed25519 -f deploy_key -N '' -C 'github-actions-deploy'
+ssh-copy-id -i deploy_key.pub root@trash.place   # or append deploy_key.pub to the droplet's ~/.ssh/authorized_keys
+```
+
+Then paste the contents of `deploy_key` (the private half) into the
+`DEPLOY_SSH_KEY` secret. The workflow pins the droplet's host key with
+`ssh-keyscan` at deploy time, so the first CI run needs no manual `known_hosts`
+setup.
+
+> If the GHCR images are **private**, the droplet must be logged in to GHCR
+> (see step 4) so `docker compose pull` in CI succeeds — the pull runs on the
+> droplet, not on the CI runner.
+
+The manual `docker compose pull && docker compose up -d` above still works if
+you ever need to deploy by hand (e.g. to pin `IMAGE_TAG` to a release).
 
 ## Note: GitHub Pages is no longer used
 
