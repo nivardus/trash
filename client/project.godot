@@ -13,7 +13,7 @@ config_version=5
 config/name="Trash"
 run/main_scene="uid://wvq3rgvb4j7i"
 config/features=PackedStringArray("4.7", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="uid://hkxpnmci2xiq"
 
 [autoload]
 
