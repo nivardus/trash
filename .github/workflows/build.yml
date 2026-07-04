@@ -1,0 +1,197 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7-stable
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  packages: write
+
+jobs:
+  export:
+    name: Export (web + dedicated server)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} and export templates
+        run: |
+          set -euxo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}"
+          EDITOR="Godot_v${GODOT_VERSION}_linux.x86_64"
+          TEMPLATES="Godot_v${GODOT_VERSION}_export_templates.tpz"
+
+          curl -fL "${BASE}/${EDITOR}.zip" -o /tmp/godot.zip
+          curl -fL "${BASE}/${TEMPLATES}" -o /tmp/templates.tpz
+
+          unzip -o /tmp/godot.zip -d /tmp/godot
+          sudo install -m 0755 "/tmp/godot/${EDITOR}" /usr/local/bin/godot
+
+          # Templates version dir uses "<major.minor.patch>.<status>" (e.g. 4.7.stable)
+          TEMPLATE_DIR="${GODOT_VERSION%-*}.${GODOT_VERSION#*-}"
+          DEST="${HOME}/.local/share/godot/export_templates/${TEMPLATE_DIR}"
+          mkdir -p "${DEST}"
+          unzip -o /tmp/templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "${DEST}/"
+
+      - name: Import project
+        working-directory: client
+        run: godot --headless --import || true
+
+      - name: Export Web
+        working-directory: client
+        run: |
+          mkdir -p build/web
+          godot --headless --export-release "Web" build/web/index.html
+
+      - name: Export dedicated server (amd64)
+        working-directory: client
+        run: |
+          mkdir -p build/server/amd64
+          godot --headless --export-release "Linux Server" build/server/amd64/trash_server
+
+      - name: Export dedicated server (arm64)
+        working-directory: client
+        run: |
+          mkdir -p build/server/arm64
+          godot --headless --export-release "Linux Server ARM64" build/server/arm64/trash_server
+
+      - name: Export desktop client (Linux)
+        working-directory: client
+        run: |
+          mkdir -p build/client/linux
+          godot --headless --export-release "Linux" build/client/linux/trash.x86_64
+
+      - name: Export desktop client (Windows)
+        working-directory: client
+        run: |
+          mkdir -p build/client/windows
+          godot --headless --export-release "Windows" build/client/windows/trash.exe
+
+      - name: Export desktop client (macOS)
+        working-directory: client
+        run: |
+          mkdir -p build/client/macos
+          godot --headless --export-release "macOS" build/client/macos/trash.zip
+
+      - name: Package desktop client artifacts
+        working-directory: client/build/client
+        run: |
+          set -eux
+          zip -r ../trash-linux-x86_64.zip linux
+          zip -r ../trash-windows-x86_64.zip windows
+          # macOS export is already a .zip bundle
+          cp macos/trash.zip ../trash-macos-universal.zip
+
+      - name: Upload desktop client artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-clients
+          path: |
+            client/build/trash-linux-x86_64.zip
+            client/build/trash-windows-x86_64.zip
+            client/build/trash-macos-universal.zip
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: client/build/web
+
+      - name: Upload server binaries artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: server
+          path: client/build/server
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: client/build/web
+
+  deploy-pages:
+    name: Deploy web to GitHub Pages
+    needs: export
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  docker:
+    name: Build & push multi-arch server image
+    needs: export
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download server binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: server
+          path: client/build/server
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: client
+          file: client/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  release:
+    name: Publish desktop client release
+    needs: export
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download desktop client artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-clients
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
