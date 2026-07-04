@@ -34,6 +34,11 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _is_local_player():
 		return
+	# Browsers only grant pointer lock from a user gesture, so (re)capture on click.
+	# This also handles native, where the initial capture in _ready() already ran.
+	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		# Accumulate yaw as input; server applies it to the body
 		look_yaw = wrapf(look_yaw - event.relative.x * MOUSE_SENS, -PI, PI)
