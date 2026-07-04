@@ -1,0 +1,46 @@
+# Production deployment for Trash on a DigitalOcean droplet.
+#
+# Caddy terminates TLS (auto Let's Encrypt) on 443 for ${SERVER_DOMAIN} and
+# routes traffic on the private compose network:
+#   /ws*  -> trash-server:9000  (the Godot dedicated server, plain ws://)
+#   /*    -> trash-web:80        (the static Godot HTML5 client)
+# so a browser loads the client from https://${SERVER_DOMAIN} and connects the
+# game socket to wss://${SERVER_DOMAIN}/ws.
+#
+# Usage on the droplet:
+#   cp .env.example .env   # then edit SERVER_DOMAIN / IMAGE_TAG if needed
+#   docker compose pull && docker compose up -d
+
+services:
+  trash-server:
+    image: ghcr.io/nivardus/trash:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Only exposed on the internal compose network; never published to the host.
+    expose:
+      - "9000"
+
+  trash-web:
+    image: ghcr.io/nivardus/trash-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SERVER_DOMAIN: ${SERVER_DOMAIN:?set SERVER_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - trash-server
+      - trash-web
+
+volumes:
+  caddy_data:
+  caddy_config:

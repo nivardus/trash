@@ -11,8 +11,6 @@ env:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
   packages: write
 
 jobs:
@@ -98,26 +96,8 @@ jobs:
           name: server
           path: client/build/server
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: client/build/web
-
-  deploy-pages:
-    name: Deploy web to GitHub Pages
-    needs: export
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
-
   docker:
-    name: Build & push multi-arch server image
+    name: Build & push multi-arch server + web images
     needs: export
     runs-on: ubuntu-latest
     steps:
@@ -130,6 +110,12 @@ jobs:
           name: server
           path: client/build/server
 
+      - name: Download web build
+        uses: actions/download-artifact@v8
+        with:
+          name: web
+          path: client/build/web
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -140,8 +126,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
+      - name: Server image metadata
+        id: meta-server
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
@@ -151,15 +137,36 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Build and push
+      - name: Build and push server image
         uses: docker/build-push-action@v7
         with:
           context: client
           file: client/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+
+      - name: Web image metadata
+        id: meta-web
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-web
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v7
+        with:
+          context: client
+          file: client/Dockerfile.web
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
 
   release:
     name: Publish desktop client release

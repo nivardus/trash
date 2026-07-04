@@ -1,0 +1,8 @@
+# Static web client image. Caddy's default config serves /usr/share/caddy on
+# :80 with correct MIME types (including application/wasm), which is all this
+# container needs to do — the public-facing Caddy in deploy/ handles TLS and
+# routing.
+FROM caddy:2-alpine
+
+# build/web/ holds the Godot HTML5 export (index.html, .wasm, .pck, ...).
+COPY build/web/ /usr/share/caddy/

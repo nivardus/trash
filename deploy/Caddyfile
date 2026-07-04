@@ -1,0 +1,16 @@
+# Caddy automatically provisions and renews a Let's Encrypt certificate for
+# SERVER_DOMAIN, then serves both halves of the app on that one hostname:
+#   - /ws (+ subpaths) is the game WebSocket; Caddy forwards the upgrade to the
+#     Godot dedicated server, so public wss:// becomes internal ws://.
+#   - everything else is served by the static web-client container.
+# handle blocks are mutually exclusive and evaluated top-down.
+
+{$SERVER_DOMAIN} {
+	handle /ws* {
+		reverse_proxy trash-server:9000
+	}
+
+	handle {
+		reverse_proxy trash-web:80
+	}
+}

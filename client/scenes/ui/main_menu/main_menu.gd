@@ -5,7 +5,7 @@ func _on_host_pressed() -> void:
 	hide()
 
 func _on_join_pressed() -> void:
-	Net.join("ws://localhost:9000")   # or wss://yourserver for production
+	Net.join(Net.default_join_url())
 	hide()
 
 func _ready() -> void:

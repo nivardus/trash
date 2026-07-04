@@ -2,7 +2,18 @@ extends Node
 
 const PORT := 9000
 const DEFAULT_URL := "ws://localhost:9000"
+# The web client is served from https://trash.place, which forbids plain ws://
+# (mixed content). Caddy routes the /ws path on that same host to the game
+# server, so browser builds connect over TLS via wss://.
+const PROD_URL := "wss://trash.place/ws"
 const PLAYER_SCENE := preload("res://scenes/player/player.tscn")
+
+# URL the client should connect to by default: the public wss:// endpoint for
+# browser builds, and a local ws:// server for desktop/dev runs.
+func default_join_url() -> String:
+	if OS.has_feature("web"):
+		return PROD_URL
+	return DEFAULT_URL
 
 func host() -> void:
 	var peer := WebSocketMultiplayerPeer.new()
