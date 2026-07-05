@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://wvq3rgvb4j7i"]
 
 [ext_resource type="PackedScene" uid="uid://sxscwmdfltq3" path="res://scenes/ui/main_menu/main_menu.tscn" id="1_j5px3"]
+[ext_resource type="Script" path="res://scenes/paint/paintable_surface.gd" id="2_paint"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_7up8o"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -20,6 +21,9 @@ size = Vector2(10, 10)
 [sub_resource type="BoxShape3D" id="BoxShape3D_twpsu"]
 size = Vector3(10, 0.5, 10)
 
+[sub_resource type="QuadMesh" id="QuadMesh_easel"]
+size = Vector2(4, 3)
+
 [node name="World" type="Node3D" unique_id=388650934]
 
 [node name="MainMenu" parent="." unique_id=1172293231 instance=ExtResource("1_j5px3")]
@@ -35,10 +39,18 @@ shadow_enabled = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Floor" unique_id=1853966466]
 mesh = SubResource("PlaneMesh_j5px3")
+script = ExtResource("2_paint")
+surface_id = &"floor"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Floor" unique_id=1492026009]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
 shape = SubResource("BoxShape3D_twpsu")
+
+[node name="Easel" type="MeshInstance3D" parent="." unique_id=1492026010]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -4)
+mesh = SubResource("QuadMesh_easel")
+script = ExtResource("2_paint")
+surface_id = &"easel"
 
 [node name="Players" type="Node3D" parent="." unique_id=21783284]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

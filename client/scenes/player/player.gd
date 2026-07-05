@@ -8,6 +8,7 @@ const MOUSE_SENS := 0.003
 @onready var spring_arm: SpringArm3D = $SpringArm3D
 @onready var camera: Camera3D = $SpringArm3D/Camera3D
 @onready var input_sync: MultiplayerSynchronizer = $InputSync
+@onready var paint_tool: Node3D = $PaintTool
 
 # Client -> server input
 @export var input_dir: Vector2 = Vector2.ZERO
@@ -27,6 +28,7 @@ func _ready() -> void:
 	if _is_local_player():
 		camera.current = true
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		paint_tool.activate(camera)
 	else:
 		camera.current = false
 		set_process_unhandled_input(false)

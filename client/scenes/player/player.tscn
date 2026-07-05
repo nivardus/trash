@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bvy6dsj5352t2"]
 
 [ext_resource type="Script" uid="uid://bnhfcai6idf0p" path="res://scenes/player/player.gd" id="1_3vyb7"]
+[ext_resource type="Script" uid="uid://dp76vd2jmmhmx" path="res://scenes/paint/paint_tool.gd" id="2_paint"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_u8vuu"]
 
@@ -35,7 +36,7 @@ shape = SubResource("CapsuleShape3D_u8vuu")
 mesh = SubResource("CapsuleMesh_3vyb7")
 
 [node name="SpringArm3D" type="SpringArm3D" parent="." unique_id=1941564500]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9524179, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 spring_length = 3.0
 
 [node name="Camera3D" type="Camera3D" parent="SpringArm3D" unique_id=19925877]
@@ -47,3 +48,6 @@ replication_config = SubResource("SceneReplicationConfig_8afob")
 
 [node name="InputSync" type="MultiplayerSynchronizer" parent="." unique_id=195590079]
 replication_config = SubResource("SceneReplicationConfig_dovo2")
+
+[node name="PaintTool" type="Node3D" parent="." unique_id=195590080]
+script = ExtResource("2_paint")

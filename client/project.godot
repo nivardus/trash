@@ -18,6 +18,7 @@ config/icon="uid://hkxpnmci2xiq"
 [autoload]
 
 Net="*uid://7a3m1dqfyfk3"
+Paint="*res://network/paint_manager.gd"
 
 [input]
 
@@ -59,6 +60,7 @@ use={
 [physics]
 
 3d/physics_engine="Jolt Physics"
+jolt_physics_3d/queries/enable_ray_cast_face_index=true
 
 [rendering]
 

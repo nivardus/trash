@@ -63,6 +63,8 @@ func _start_server() -> bool:
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	# Give the paint system its authoritative per-surface master images.
+	Paint.become_server()
 	_heartbeat_timer = Timer.new()
 	_heartbeat_timer.wait_time = HEARTBEAT_INTERVAL
 	_heartbeat_timer.autostart = true
